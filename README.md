@@ -1,3 +1,5 @@
+Sitio: https://eflores1122.github.io/fastapi-data-ingestion-avro/
+
 # FastAPI data ingestion with AVRO backup
 
 Local proof of concept and portfolio project built on sample data. It loads three historical CSV tables into SQLite, validates batch uploads, stores rejected rows, backs up and restores each table as AVRO, and serves two hiring reports for 2021.
@@ -305,6 +307,16 @@ Of the 1,929 stored hires, 1,643 have a 2021 timestamp and 286 have a 2022 times
 
 The sample-data test backed up that load and restored it into an empty database: 12 department rows, 183 job rows, and 1,929 hire rows, matching the source tables. The hire backup is larger than the ingest limit of 1,000, so restore splits it internally.
 
+## Sitio
+
+https://eflores1122.github.io/fastapi-data-ingestion-avro/
+
+GitHub Actions publica esa página en cada push a `main` (`.github/workflows/pages.yml`). La página es estática. Pyodide 0.27.7 carga los módulos de `app/` y ejecuta `insert_records`, `backup_table` y las dos funciones de `app/analytics.py` con los CSV de `data/`.
+
+El visitante edita el JSON de un lote, sube un CSV sin cabecera y descarga el AVRO de la tabla. Un JSON sigue el límite de 1 a 1000 filas. Un CSV se parte como `scripts/load_historical.py`.
+
+`fastavro` 1.10.0 trae una rueda con extensión en C, y Pyodide no la instala. En el navegador, `backup_table` escribe con `web/avro_container.py`, montado como `fastavro`, y usa los esquemas de `app/avro_io.py`. `tests/test_avro_container.py` lee esos bytes con el `fastavro` instalado. La API local sigue usando `fastavro`.
+
 ## Limitations
 
 - There is no authentication. Backup and restore read and write local files, and restore opens whatever `file_path` the caller sends.
@@ -317,4 +329,4 @@ The sample-data test backed up that load and restored it into an empty database:
 
 ## Resumen en español
 
-Esta prueba carga tres CSV históricos en SQLite, valida lotes de 1 a 1000 filas por API y guarda el motivo de cada fila rechazada. También respalda y restaura cada tabla en AVRO y publica dos reportes de contrataciones de 2021: por departamento, puesto y trimestre, y los departamentos por encima de la media. Los números de este README salen de una ejecución real con los CSV de `data/`.
+Esta prueba carga tres CSV históricos en SQLite, valida lotes de 1 a 1000 filas por API y guarda el motivo de cada fila rechazada. También respalda y restaura cada tabla en AVRO y publica dos reportes de contrataciones de 2021: por departamento, puesto y trimestre, y los departamentos por encima de la media. Los números de este README salen de una ejecución real con los CSV de `data/`. La página del sitio vuelve a ejecutar esa validación en el navegador con los mismos archivos.

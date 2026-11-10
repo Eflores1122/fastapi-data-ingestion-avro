@@ -20,6 +20,9 @@ build/
 .coverage.*
 htmlcov/
 
+# Assembled GitHub Pages output
+_site/
+
 # Local runtime artifacts
 *.db
 *.sqlite
