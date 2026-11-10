@@ -6,11 +6,11 @@ install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
 lint:
-	$(PYTHON) -m ruff check app tests scripts
-	$(PYTHON) -m ruff format --check app tests scripts
+	$(PYTHON) -m ruff check app tests scripts web
+	$(PYTHON) -m ruff format --check app tests scripts web
 
 format:
-	$(PYTHON) -m ruff format app tests scripts
+	$(PYTHON) -m ruff format app tests scripts web
 
 test:
 	$(PYTHON) -m pytest

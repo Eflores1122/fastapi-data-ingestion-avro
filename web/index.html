@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#e6edf3">
+    <meta name="description" content="Validación de lotes CSV y JSON con el código de fastapi-data-ingestion-avro, en el navegador.">
+    <title>Validar el lote</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%231f4e79'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip" href="#banco" data-i18n="skip">Saltar al validador</a>
+    <header class="top">
+      <div>
+        <a class="wordmark" href="#banco">Ingesta</a>
+        <p class="tag" data-i18n="tag">CSV a SQLite, fila por fila, respaldo AVRO</p>
+      </div>
+      <nav>
+        <a href="https://github.com/Eflores1122/fastapi-data-ingestion-avro" data-i18n="repo">Repositorio</a>
+        <div class="lang" id="lang-group" role="group" data-i18n-aria="lang-label" aria-label="Idioma">
+          <button type="button" id="lang-es" aria-pressed="true">ES</button>
+          <button type="button" id="lang-en" aria-pressed="false">EN</button>
+        </div>
+      </nav>
+    </header>
+    <main id="banco">
+      <h1 data-i18n="title">Validar el lote</h1>
+      <p class="lede">
+        <span data-i18n="lede-1">Pyodide ejecuta</span>
+        <code>insert_records</code>
+        <span data-i18n="lede-2">de este repositorio y muestra el cuerpo de</span>
+        <code>POST /ingest/{tabla}</code>.
+      </p>
+      <p id="runtime-line" class="hint"></p>
+      <p id="status" role="status">Cargando Pyodide y los módulos del repositorio.</p>
+      <noscript>
+        <p>Esta página necesita JavaScript para ejecutar la validación con Pyodide.</p>
+      </noscript>
+      <div class="bench">
+        <div class="strip">
+          <p><code>received</code> <strong id="n-received"></strong></p>
+          <p><code>inserted</code> <strong id="n-inserted"></strong></p>
+          <p><code>rejected</code> <strong id="n-rejected"></strong></p>
+        </div>
+        <form id="request-form" class="request">
+          <h2 data-i18n="request">Solicitud</h2>
+          <label for="table-name" data-i18n="table-label">Tabla</label>
+          <input id="table-name" name="table" type="text" value="departments" spellcheck="false" autocomplete="off">
+          <p class="hint"><code id="route">POST /ingest/departments</code></p>
+          <div class="examples" role="group" data-i18n-aria="examples-label" aria-label="Ejemplos">
+            <button type="button" data-example="departments">departments</button>
+            <button type="button" data-example="jobs">jobs</button>
+            <button type="button" data-example="hired_employees">hired_employees</button>
+          </div>
+          <p class="hint" data-i18n="example-hint">Cada botón escribe el ejemplo de esa tabla y lo valida. hired_employees depende de los padres que ya estén en la sesión.</p>
+          <label for="body" data-i18n="body-label">Cuerpo JSON</label>
+          <textarea id="body" name="body" spellcheck="false">[
+  {"id": 1, "department": "Support"},
+  {"id": 2, "department": ""}
+]</textarea>
+          <label for="file" data-i18n="file-label">Subir JSON o CSV sin cabecera</label>
+          <div class="file-row">
+            <label class="file-pick">
+              <span data-i18n="file-button">Elegir archivo</span>
+              <input id="file" class="file-input" type="file" accept=".json,.csv,application/json,text/csv,text/plain" disabled>
+            </label>
+            <span id="file-name" class="hint"></span>
+          </div>
+          <p class="hint" data-i18n="file-hint">Un JSON sale como un solo POST. Un CSV lo lee scripts/load_historical.py y lo parte en lotes de 1000.</p>
+          <div class="actions">
+            <button class="primary" type="submit" id="validate" disabled data-i18n="validate">Validar el lote</button>
+            <button class="secondary" type="button" id="download" disabled data-i18n="download">Descargar el AVRO de la tabla</button>
+            <button class="secondary" type="button" id="reset" disabled data-i18n="reset">Vaciar la sesión</button>
+          </div>
+        </form>
+        <div class="response" id="response">
+          <h2 data-i18n="response">Respuesta</h2>
+          <p id="http-line"></p>
+          <pre id="http-body" hidden></pre>
+          <div id="extra"></div>
+          <div id="backup-block" hidden>
+            <p><code id="backup-route"></code></p>
+            <p id="backup-meta" class="hint"></p>
+            <pre id="backup-body"></pre>
+          </div>
+        </div>
+      </div>
+      <p id="session-line"></p>
+
+      <section id="medicion">
+        <h2 data-i18n="measure-title">Medición de los CSV</h2>
+        <p data-i18n="measure-copy">El botón vacía la sesión, carga data/departments.csv, data/jobs.csv y data/hired_employees.csv en ese orden, y ejecuta hires_by_quarter y departments_above_average. tests/test_sample_data.py fija la medición del 2026-10-30. Esta sección la vuelve a calcular.</p>
+        <button class="primary" type="button" id="sample" disabled data-i18n="sample">Cargar los CSV de data/ y medir los reportes</button>
+        <div id="measure"></div>
+      </section>
+
+      <section>
+        <h2 data-i18n="rules-title">Reglas de validate_record</h2>
+        <p data-i18n="rule-1">Un campo es obligatorio cuando la clave falta, el valor es null o el valor es una cadena vacía. Si alguno falla, esa fila no pasa por las comprobaciones de tipo ni de clave foránea.</p>
+        <p data-i18n="rule-2">id admite un entero de JSON, también 0 y los negativos, o un texto de dígitos con espacios alrededor, como "42" o " 7 ". Un booleano, un decimal, "-2" y "+2" se rechazan.</p>
+        <p data-i18n="rule-3">El texto se recorta. Una cadena en blanco no se trata como ausente. Falla con must be a non-empty string.</p>
+        <p data-i18n="rule-4">datetime se recorta y tiene que coincidir con YYYY-MM-DDTHH:MM:SSZ. Si la forma es correcta y el calendario no existe, el mensaje del parser detiene las claves foráneas de esa fila. Un ejemplo es day is out of range for month.</p>
+        <p data-i18n="rule-5">En hired_employees, department_id y job_id tienen que existir ya en la sesión. Un id repetido hace INSERT OR REPLACE y la fila cuenta como insertada.</p>
+        <p data-i18n="rule-6">La lista trae de 1 a 1000 objetos. Un nombre de tabla distinto de departments, jobs y hired_employees devuelve 404 y el cuerpo {"detail": "Unknown table"}.</p>
+        <div class="table-wrap">
+          <table>
+            <caption class="visually-hidden" data-i18n="rules-caption">Reglas por tabla</caption>
+            <thead>
+              <tr>
+                <th data-i18n="col-table">Tabla</th>
+                <th data-i18n="col-rules">Después del campo obligatorio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>departments</code></td>
+                <td data-i18n="rule-dept">id entero, department texto no vacío</td>
+              </tr>
+              <tr>
+                <td><code>jobs</code></td>
+                <td data-i18n="rule-jobs">id entero, job texto no vacío</td>
+              </tr>
+              <tr>
+                <td><code>hired_employees</code></td>
+                <td data-i18n="rule-hires">id entero, name texto, datetime con esa forma, department_id y job_id enteros que ya existan</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-i18n="arch-title">Arquitectura</h2>
+        <p data-i18n="arch-copy">El servicio local sigue este recorrido. En esta página el navegador llama a insert_records y a backup_table.</p>
+        <div id="diagram" class="diagram"></div>
+        <details>
+          <summary data-i18n="diagram-source">Fuente Mermaid</summary>
+          <pre id="diagram-source"></pre>
+        </details>
+      </section>
+
+      <section>
+        <h2 data-i18n="limits-title">Límites de esta página</h2>
+        <ul>
+          <li data-i18n="limit-1">La página es estática. La validación corre en Pyodide 0.27.7 (CPython 3.12) con los módulos de este sitio.</li>
+          <li data-i18n="limit-2">Pyodide y Mermaid se descargan de jsDelivr. app/validation.py, app/repository.py, app/avro_io.py y app/analytics.py salen de este sitio.</li>
+          <li data-i18n="limit-3">Pyodide no instala la rueda de fastavro 1.10.0 porque trae extensión en C. backup_table usa web/avro_container.py, montado como fastavro, con los esquemas de app/avro_io.py. tests/test_avro_container.py comprueba que fastavro.reader lee esos bytes. La API local sigue usando fastavro.</li>
+          <li data-i18n="limit-4">La SQLite vive en el sistema de archivos de Pyodide. Recargar la página la borra.</li>
+          <li data-i18n="limit-5">path en la respuesta de backup es esa ruta interna. El botón guarda los mismos bytes.</li>
+          <li data-i18n="limit-6">Un JSON de más de 1000 filas devuelve 422. Un CSV largo se parte en lotes de 1000, como el cargador.</li>
+          <li data-i18n="limit-7">No hay autenticación, igual que el servicio. El backup abre la tabla entera, ordenada por id.</li>
+          <li data-i18n="limit-8">Los CSV de data/ son la muestra del repositorio. No son un extracto real de personal.</li>
+        </ul>
+      </section>
+    </main>
+    <footer>
+      <p>
+        <a href="https://github.com/Eflores1122">Edgar Flores</a>
+        ·
+        <a href="https://github.com/Eflores1122/fastapi-data-ingestion-avro">fastapi-data-ingestion-avro</a>
+      </p>
+      <p data-i18n="colophon-font">IBM Plex Sans, dibujada por Mike Abbink y Bold Monday para la interfaz y la documentación técnica de IBM. Aguanta tablas densas y nombres de campo largos. IBM Plex Mono solo en JSON, SQL y rutas. Licencia OFL.</p>
+      <p data-i18n="colophon-color">El azul #1f4e79 es el de la segunda hoja de un formulario de copia, la que se archivaba. El AVRO es esa copia de la tabla.</p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
