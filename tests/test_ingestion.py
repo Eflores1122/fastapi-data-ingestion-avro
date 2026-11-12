@@ -1,4 +1,7 @@
 import json
+import sqlite3
+
+import pytest
 
 from app.database import get_connection
 from app.repository import fetch_all
@@ -155,3 +158,44 @@ def test_loader_chunks_headerless_csv_and_rejects_incomplete_rows(tmp_path):
         rows = fetch_all(connection, "hired_employees")
     assert rows[0]["name"] == "Ada Example"
     assert rows[0]["department_id"] == 1
+
+
+def test_loader_strips_a_utf8_bom_and_pads_short_rows(tmp_path):
+    (tmp_path / "departments.csv").write_text("\ufeff1,Engineering\n2\n", encoding="utf-8")
+    (tmp_path / "jobs.csv").write_text("1,Analyst\n", encoding="utf-8")
+    (tmp_path / "hired_employees.csv").write_text(
+        "1,Ada Example,2021-03-01T00:00:00Z,1\n",
+        encoding="utf-8",
+    )
+
+    with get_connection() as connection:
+        summaries = [
+            load_table(connection, name, tmp_path)
+            for name in ("departments", "jobs", "hired_employees")
+        ]
+        departments = fetch_all(connection, "departments")
+        invalid = connection.execute("SELECT errors FROM invalid_records ORDER BY id").fetchall()
+
+    assert summaries == [
+        {"table": "departments", "received": 2, "inserted": 1, "rejected": 1},
+        {"table": "jobs", "received": 1, "inserted": 1, "rejected": 0},
+        {"table": "hired_employees", "received": 1, "inserted": 0, "rejected": 1},
+    ]
+    assert departments == [{"id": 1, "department": "Engineering"}]
+    assert [json.loads(row["errors"]) for row in invalid] == [
+        ["department is required"],
+        ["job_id is required"],
+    ]
+
+
+def test_foreign_keys_reject_a_hire_with_missing_parents():
+    with get_connection() as connection:
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO hired_employees (id, name, datetime, department_id, job_id)
+                VALUES (1, 'Ada Example', '2021-01-15T00:00:00Z', 1, 1)
+                """
+            )
+    with get_connection() as connection:
+        assert fetch_all(connection, "hired_employees") == []

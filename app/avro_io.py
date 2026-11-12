@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import UTC, datetime
 
 from fastavro import reader, writer
@@ -36,7 +37,7 @@ SCHEMAS = {
 }
 
 
-def backup_table(connection, table_name: str) -> dict:
+def backup_table(connection: sqlite3.Connection, table_name: str) -> dict:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     path = BACKUP_DIR / f"{table_name}_{timestamp}.avro"
@@ -46,7 +47,7 @@ def backup_table(connection, table_name: str) -> dict:
     return {"table": table_name, "records": len(records), "path": str(path)}
 
 
-def restore_table(connection, table_name: str, file_path: str) -> dict:
+def restore_table(connection: sqlite3.Connection, table_name: str, file_path: str) -> dict:
     with open(file_path, "rb") as file:
         records = [dict(record) for record in reader(file)]
     result = restore_records(connection, table_name, records)

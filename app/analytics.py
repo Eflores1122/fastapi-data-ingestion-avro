@@ -1,4 +1,7 @@
-def hires_by_quarter(connection) -> list[dict]:
+import sqlite3
+
+
+def hires_by_quarter(connection: sqlite3.Connection) -> list[dict]:
     query = """
         SELECT
             d.department AS department,
@@ -37,7 +40,7 @@ def hires_by_quarter(connection) -> list[dict]:
     return [dict(row) for row in connection.execute(query).fetchall()]
 
 
-def departments_above_average(connection) -> list[dict]:
+def departments_above_average(connection: sqlite3.Connection) -> list[dict]:
     # The mean includes every department, including those with zero hires in 2021.
     query = """
         WITH department_hires AS (
