@@ -56,7 +56,7 @@ def exists(connection: sqlite3.Connection, table_name: str, record_id: int) -> b
 
 
 def validate_record(
-    connection: sqlite3.Connection, table_name: str, record: dict
+    connection: sqlite3.Connection, table_name: str, record: dict[str, object]
 ) -> tuple[dict | None, list[str]]:
     errors = []
     clean: dict = {}
@@ -90,7 +90,10 @@ def validate_record(
 
 
 def log_invalid_record(
-    connection: sqlite3.Connection, table_name: str, record: dict, errors: list[str]
+    connection: sqlite3.Connection,
+    table_name: str,
+    record: dict[str, object],
+    errors: list[str],
 ) -> None:
     payload = json.dumps(record, ensure_ascii=False)
     error_text = json.dumps(errors, ensure_ascii=False)

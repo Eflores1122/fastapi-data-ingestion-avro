@@ -1,3 +1,5 @@
+import sqlite3
+
 from app.settings import MAX_BATCH_SIZE
 from app.validation import log_invalid_record, validate_batch_size, validate_record
 
@@ -21,7 +23,7 @@ FETCH_SQL = {
 }
 
 
-def insert_records(connection, table_name: str, records) -> dict:
+def insert_records(connection: sqlite3.Connection, table_name: str, records: list) -> dict:
     validate_batch_size(records)
     inserted = 0
     rejected = []
@@ -42,12 +44,12 @@ def insert_records(connection, table_name: str, records) -> dict:
     }
 
 
-def fetch_all(connection, table_name: str) -> list[dict]:
+def fetch_all(connection: sqlite3.Connection, table_name: str) -> list[dict]:
     rows = connection.execute(FETCH_SQL[table_name]).fetchall()
     return [dict(row) for row in rows]
 
 
-def restore_records(connection, table_name: str, records: list) -> dict:
+def restore_records(connection: sqlite3.Connection, table_name: str, records: list) -> dict:
     """Upsert a backup using the same row rules as ingest.
 
     Ingest refuses a batch outside 1..1000 rows. A table backup can be larger,

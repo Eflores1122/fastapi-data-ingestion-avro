@@ -35,9 +35,13 @@ def test_backup_and_restore_roundtrip_replaces_current_row(client):
 def test_restore_requires_a_file_path(client):
     missing = client.post("/restore/departments", json={})
     blank = client.post("/restore/departments", json={"file_path": ""})
+    spaces = client.post("/restore/departments", json={"file_path": "   "})
+    number = client.post("/restore/departments", json={"file_path": 12})
     assert missing.status_code == 422
     assert missing.json() == {"detail": "file_path is required"}
     assert blank.json() == {"detail": "file_path is required"}
+    assert spaces.json() == {"detail": "file_path is required"}
+    assert number.json() == {"detail": "file_path is required"}
 
 
 def test_restore_unknown_table_and_missing_file(client, isolated_storage):

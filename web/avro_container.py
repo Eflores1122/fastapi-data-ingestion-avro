@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Iterable, Iterator
+from typing import BinaryIO
 
 MAGIC = b"Obj\x01"
 INT32_MIN = -2147483648
@@ -68,12 +69,12 @@ def _encode_record(schema: dict, record: dict) -> bytes:
 
 
 def writer(
-    fo,
+    fo: BinaryIO,
     schema: dict,
     records: Iterable[dict],
     codec: str = "null",
     sync_marker: bytes | None = None,
-    **_kwargs,
+    **_kwargs: object,
 ) -> None:
     """Write an object-container file. Signature matches the ``fastavro.writer`` call."""
     if codec != "null":
@@ -195,7 +196,7 @@ def decode_container(data: bytes) -> tuple[list[dict], dict]:
     return records, schema
 
 
-def reader(fo, *_args, **_kwargs) -> Iterator[dict]:
+def reader(fo: BinaryIO, *_args: object, **_kwargs: object) -> Iterator[dict]:
     """Iterate records. ``app.avro_io`` imports this name."""
     records, _schema = decode_container(fo.read())
     return iter(records)

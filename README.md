@@ -1,10 +1,21 @@
-Sitio: https://eflores1122.github.io/fastapi-data-ingestion-avro/
-
 # FastAPI data ingestion with AVRO backup
 
-Local proof of concept and portfolio project built on sample data. It loads three historical CSV tables into SQLite, validates batch uploads, stores rejected rows, backs up and restores each table as AVRO, and serves two hiring reports for 2021.
+[![CI](https://github.com/Eflores1122/fastapi-data-ingestion-avro/actions/workflows/ci.yml/badge.svg)](https://github.com/Eflores1122/fastapi-data-ingestion-avro/actions/workflows/ci.yml)
 
-Python 3.12 is the version used to produce the numbers below (CPython 3.12.3). The API is FastAPI. The database is a single SQLite file. AVRO read and write uses `fastavro`.
+Validates synthetic CSV rows into SQLite, records why a row was rejected, and backs each table up as AVRO.
+
+Portfolio proof of concept: load three related tables, accept later batches over HTTP, restore from AVRO, and serve two 2021 hiring reports. The files in `data/` are synthetic sample data, not a personnel extract. A browser copy of the same checks runs at <https://eflores1122.github.io/fastapi-data-ingestion-avro/>.
+
+## Tech stack
+
+| Piece | Role |
+| --- | --- |
+| Python 3.12 | Language. The numbers below were produced with CPython 3.12.3. |
+| FastAPI 0.115.6 and Uvicorn 0.34.0 | HTTP API. Interactive docs at `/docs`. |
+| SQLite | One local database file, with foreign keys enabled. |
+| fastavro 1.10.0 | AVRO read and write for the API. |
+| pytest 8.3.4, httpx 0.28.1, Ruff 0.17.3 | Tests and lint, installed from `requirements-dev.txt`. |
+| Pyodide 0.27.7 | Static GitHub Pages build that runs the same Python modules in the browser. |
 
 ## Problem
 
@@ -57,9 +68,11 @@ app/
   avro_io.py        AVRO backup and restore
   database.py       SQLite schema and connections
   settings.py       paths and the batch limit of 1000
-data/               sample CSVs, headerless
+data/               synthetic headerless CSVs
 scripts/load_historical.py
-tests/
+tests/              pytest; each test uses a temporary database
+web/                static page, Pyodide runtime, pure-Python AVRO writer
+.github/workflows/  ci.yml runs lint and tests; pages.yml publishes the site
 ```
 
 These files are created locally and are gitignored:
@@ -70,7 +83,7 @@ These files are created locally and are gitignored:
 
 ## Source data
 
-`data/departments.csv`, `data/jobs.csv`, and `data/hired_employees.csv` ship with this repository as the sample input. They have no header row. The loader reads them as UTF-8 and strips a leading BOM if one is present. These copies have no BOM.
+`data/departments.csv`, `data/jobs.csv`, and `data/hired_employees.csv` are synthetic sample data checked into this repository. They are not a real HR extract. They have no header row. The loader reads them as UTF-8 and strips a leading BOM if one is present. These copies have no BOM.
 
 | File | Rows | Columns |
 | --- | ---: | --- |
@@ -78,7 +91,7 @@ These files are created locally and are gitignored:
 | `jobs.csv` | 183 | `id`, `job` |
 | `hired_employees.csv` | 1,999 | `id`, `name`, `datetime`, `department_id`, `job_id` |
 
-The employee file contains names from that sample dataset. It has no email addresses, phone numbers, or national identifiers. The historical load and the measured results depend on these three files. Keep them. Do not replace them with a real HR extract.
+The employee file uses made-up names. It has no email addresses, phone numbers, national identifiers, or other contact data. The historical load and the measured results depend on these three files. Keep them. Do not replace them with a real HR extract.
 
 A short CSV row is padded with `null` for the missing columns. A `null` or empty field fails the required-field check.
 
@@ -202,7 +215,7 @@ Hires from other years stay in the table and are left out of both reports.
 {"file_path": "/path/to/backups/departments_YYYYMMDDHHMMSS.avro"}
 ```
 
-A missing or blank `file_path` returns `422` with `{"detail": "file_path is required"}`.
+A missing, blank, or non-string `file_path` returns `422` with `{"detail": "file_path is required"}`. Whitespace-only counts as blank.
 
 Restore reads the file and upserts it with the same row rules as ingest, in batches of 1000. That batching is internal: `POST /ingest/{table}` still rejects a body outside 1 to 1000 rows, while a backup larger than 1000 rows can be restored. An empty backup restores as `0` rows.
 
@@ -257,7 +270,7 @@ Pytest points at a temporary database, backup directory, and JSONL file. It does
 
 Coverage includes validation helpers, batch limits, partial ingest, the CSV loader, backup and restore (including a backup larger than 1000 rows and a failed restore), both analytics endpoints, and one load of the sample CSVs.
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on push and pull request with Python 3.12. The job has `contents: read` and uses no secrets. It installs `requirements-dev.txt`, runs Ruff, and runs pytest.
+GitHub Actions (`.github/workflows/ci.yml`) runs on push and pull request with Python 3.12. The job has `contents: read` and uses no secrets. It installs `requirements-dev.txt`, runs `pip check`, runs Ruff, and runs pytest.
 
 ## Measured run
 
@@ -307,15 +320,17 @@ Of the 1,929 stored hires, 1,643 have a 2021 timestamp and 286 have a 2022 times
 
 The sample-data test backed up that load and restored it into an empty database: 12 department rows, 183 job rows, and 1,929 hire rows, matching the source tables. The hire backup is larger than the ingest limit of 1,000, so restore splits it internally.
 
-## Sitio
+## Browser page
 
-https://eflores1122.github.io/fastapi-data-ingestion-avro/
+<https://eflores1122.github.io/fastapi-data-ingestion-avro/>
 
-GitHub Actions publica esa página en cada push a `main` (`.github/workflows/pages.yml`). La página es estática. Pyodide 0.27.7 carga los módulos de `app/` y ejecuta `insert_records`, `backup_table` y las dos funciones de `app/analytics.py` con los CSV de `data/`.
+GitHub Actions publishes that page on every push to `main` (`.github/workflows/pages.yml`). The page is static. Pyodide 0.27.7 loads the `app/` modules and runs `insert_records`, `backup_table`, and the two functions in `app/analytics.py` against the CSVs in `data/`.
 
-El visitante edita el JSON de un lote, sube un CSV sin cabecera y descarga el AVRO de la tabla. Un JSON sigue el límite de 1 a 1000 filas. Un CSV se parte como `scripts/load_historical.py`.
+A visitor edits a batch as JSON, uploads a headerless CSV, and downloads that table's AVRO file. A JSON body still has to be 1 to 1000 rows. A CSV is split the same way as `scripts/load_historical.py`.
 
-`fastavro` 1.10.0 trae una rueda con extensión en C, y Pyodide no la instala. En el navegador, `backup_table` escribe con `web/avro_container.py`, montado como `fastavro`, y usa los esquemas de `app/avro_io.py`. `tests/test_avro_container.py` lee esos bytes con el `fastavro` instalado. La API local sigue usando `fastavro`.
+`fastavro` 1.10.0 ships a wheel with a C extension, which Pyodide does not install. In the browser, `backup_table` writes with `web/avro_container.py`, mounted as `fastavro`, and uses the schemas in `app/avro_io.py`. `tests/test_avro_container.py` reads those bytes with the installed `fastavro`. The local API still uses `fastavro`.
+
+The page includes Spanish and English. It opens in Spanish until the browser has saved the other choice.
 
 ## Limitations
 
@@ -326,7 +341,12 @@ El visitante edita el JSON de un lote, sube un CSV sin cabecera y descarga el AV
 - A missing required field hides later type and foreign-key errors for that row.
 - The department mean includes departments with zero hires in 2021. A department equal to the mean is excluded.
 - Reports and foreign keys are enforced in SQLite. The report SQL uses `strftime` and `substr`.
+- Two backups of the same table during the same UTC second write the same filename.
+
+## License
+
+[MIT](LICENSE).
 
 ## Resumen en español
 
-Esta prueba carga tres CSV históricos en SQLite, valida lotes de 1 a 1000 filas por API y guarda el motivo de cada fila rechazada. También respalda y restaura cada tabla en AVRO y publica dos reportes de contrataciones de 2021: por departamento, puesto y trimestre, y los departamentos por encima de la media. Los números de este README salen de una ejecución real con los CSV de `data/`. La página del sitio vuelve a ejecutar esa validación en el navegador con los mismos archivos.
+Proyecto de portafolio. Carga tres CSV sintéticos en SQLite, valida lotes de 1 a 1000 filas por API y guarda el motivo de cada fila rechazada. También respalda y restaura cada tabla en AVRO y publica dos reportes de contrataciones de 2021: por departamento, puesto y trimestre, y los departamentos por encima de la media. Los números de este README salen de los CSV de `data/`, y `tests/test_sample_data.py` los fija. La página vuelve a ejecutar esa validación en el navegador con los mismos archivos. Licencia MIT.

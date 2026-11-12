@@ -11,9 +11,11 @@ from __future__ import annotations
 import base64
 import importlib.util
 import json
+import sqlite3
 import sys
 import tempfile
 from pathlib import Path
+from types import ModuleType
 
 _HERE = Path(__file__).resolve().parent
 ROOT = _HERE if (_HERE / "app" / "validation.py").is_file() else _HERE.parent
@@ -64,7 +66,7 @@ COUNT_SQL = {
 }
 
 
-def _loader():
+def _loader() -> ModuleType:
     global _LOADER
     if _LOADER is None:
         path = ROOT / "scripts" / "load_historical.py"
@@ -289,7 +291,7 @@ def reset_session() -> str:
     return _dump({"status": "ok"})
 
 
-def _measure(connection) -> dict:
+def _measure(connection: sqlite3.Connection) -> dict:
     quarters = [
         {
             "department": row["department"],

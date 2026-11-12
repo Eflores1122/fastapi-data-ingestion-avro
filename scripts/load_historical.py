@@ -2,7 +2,9 @@
 
 import argparse
 import csv
+import sqlite3
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +25,7 @@ TABLE_FILES = {
 }
 
 
-def read_csv(path: Path, columns: list[str]) -> list[dict]:
+def read_csv(path: Path, columns: list[str]) -> list[dict[str, str | None]]:
     records = []
     with path.open(newline="", encoding="utf-8-sig") as file:
         for row in csv.reader(file):
@@ -36,12 +38,15 @@ def read_csv(path: Path, columns: list[str]) -> list[dict]:
     return records
 
 
-def chunks(records: list, size: int):
+def chunks(
+    records: list[dict[str, str | None]],
+    size: int,
+) -> Iterator[list[dict[str, str | None]]]:
     for index in range(0, len(records), size):
         yield records[index : index + size]
 
 
-def load_table(connection, table_name: str, data_dir: Path) -> dict:
+def load_table(connection: sqlite3.Connection, table_name: str, data_dir: Path) -> dict:
     filename, columns = TABLE_FILES[table_name]
     records = read_csv(data_dir / filename, columns)
     summary = {"table": table_name, "received": len(records), "inserted": 0, "rejected": 0}

@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -10,7 +11,7 @@ from app.validation import TABLE_COLUMNS
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     initialize_database()
     yield
 
@@ -24,7 +25,7 @@ def check_table(table_name: str) -> None:
 
 
 @app.get("/health")
-def health() -> dict:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
@@ -46,15 +47,16 @@ def backup(table_name: str) -> dict:
 
 
 @app.post("/restore/{table_name}")
-def restore(table_name: str, payload: dict) -> dict:
+def restore(table_name: str, payload: dict[str, object]) -> dict:
     check_table(table_name)
     file_path = payload.get("file_path")
-    if not file_path:
+    if not isinstance(file_path, str) or not file_path.strip():
         raise HTTPException(status_code=422, detail="file_path is required")
     try:
         with get_connection() as connection:
             return restore_table(connection, table_name, file_path)
     except Exception as error:
+        # A missing path, a corrupt AVRO file, and a rejected row are client errors.
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 
